@@ -3,6 +3,7 @@ const today = new Date();
 
 const defaultState = {
   selectedId: "",
+  prepList: [],
   games: [
     {
       id: crypto.randomUUID(),
@@ -70,8 +71,14 @@ const els = {
   gameCount: document.querySelector("#gameCount"),
   ruleCount: document.querySelector("#ruleCount"),
   staleGame: document.querySelector("#staleGame"),
-  visibleCount: document.querySelector("#visibleCount")
+  visibleCount: document.querySelector("#visibleCount"),
+  pendingCount: document.querySelector("#pendingCount"),
+  pendingDuration: document.querySelector("#pendingDuration"),
+  prepList: document.querySelector("#prepList"),
+  prepCount: document.querySelector("#prepCount")
 };
+
+const prepStatusLabels = { pending: "待讲", done: "讲完", skipped: "跳过" };
 
 function loadState() {
   const saved = localStorage.getItem(storageKey);
@@ -116,12 +123,29 @@ function getFilteredGames() {
   return games.sort((a, b) => daysSince(b.lastPlayed) - daysSince(a.lastPlayed));
 }
 
+function getPrepItems() {
+  return state.prepList
+    .map((entry) => ({ ...entry, game: state.games.find((game) => game.id === entry.id) }))
+    .filter((item) => item.game);
+}
+
+function formatDuration(minutes) {
+  if (minutes < 60) return `${minutes}分钟`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours}小时${rest}分` : `${hours}小时`;
+}
+
 function renderSummary() {
   const allRuleCount = state.games.reduce((sum, game) => sum + getAllRules(game).length, 0);
   const stale = [...state.games].sort((a, b) => daysSince(b.lastPlayed) - daysSince(a.lastPlayed))[0];
+  const pendingItems = getPrepItems().filter((item) => item.status === "pending");
+  const pendingMinutes = pendingItems.reduce((sum, item) => sum + item.game.duration, 0);
   els.gameCount.textContent = state.games.length;
   els.ruleCount.textContent = allRuleCount;
   els.staleGame.textContent = stale ? `${daysSince(stale.lastPlayed)}天` : "-";
+  els.pendingCount.textContent = pendingItems.length;
+  els.pendingDuration.textContent = pendingItems.length ? formatDuration(pendingMinutes) : "-";
 }
 
 function renderList() {
@@ -131,6 +155,7 @@ function renderList() {
     games
       .map((game) => {
         const selected = game.id === state.selectedId ? "selected" : "";
+        const inPrep = state.prepList.some((entry) => entry.id === game.id);
         return `
           <article class="game-card ${selected}" data-game-id="${game.id}">
             <div class="cover">
@@ -148,11 +173,48 @@ function renderList() {
                 <span class="pill">${game.duration}分钟</span>
                 <span class="pill heavy">${escapeHtml(game.complexity)}</span>
               </div>
+              <button class="add-prep" type="button" data-add-prep="${game.id}" ${inPrep ? "disabled" : ""}>
+                ${inPrep ? "已在清单" : "收进清单"}
+              </button>
             </div>
           </article>
         `;
       })
       .join("") || `<p class="empty">没有符合筛选的桌游。</p>`;
+}
+
+function renderPrep() {
+  const items = getPrepItems();
+  els.prepCount.textContent = items.length ? `${items.length}款待准备` : "";
+  els.prepList.innerHTML =
+    items
+      .map((item, index) => {
+        const { game } = item;
+        const statusButtons = Object.entries(prepStatusLabels)
+          .map(
+            ([status, label]) => `
+              <button type="button" class="status-btn ${item.status === status ? "active" : ""}"
+                data-prep-id="${game.id}" data-prep-status="${status}">${label}</button>
+            `
+          )
+          .join("");
+        return `
+          <article class="prep-item status-${item.status}" data-prep-id="${game.id}">
+            <span class="prep-order">${index + 1}</span>
+            <div class="prep-info">
+              <h3>${escapeHtml(game.name)}</h3>
+              <div class="game-meta">
+                <span class="pill">${game.minPlayers}-${game.maxPlayers}人</span>
+                <span class="pill">${game.duration}分钟</span>
+                <span class="pill heavy">${escapeHtml(game.complexity)}</span>
+              </div>
+            </div>
+            <div class="prep-status">${statusButtons}</div>
+            <button class="prep-remove" type="button" title="移出清单" data-prep-remove="${game.id}">×</button>
+          </article>
+        `;
+      })
+      .join("") || `<p class="empty">清单还是空的，在下方卡片上点「收进清单」。筛掉的桌游不会影响这里。</p>`;
 }
 
 function renderDetail() {
@@ -223,6 +285,7 @@ function renderRuleSection(title, key, items) {
 function renderAll() {
   saveState();
   renderSummary();
+  renderPrep();
   renderList();
   renderDetail();
 }
@@ -288,10 +351,37 @@ els.sortMode.addEventListener("change", renderAll);
 els.gameForm.addEventListener("submit", addGame);
 
 els.gameList.addEventListener("click", (event) => {
+  const addButton = event.target.closest("[data-add-prep]");
+  if (addButton) {
+    const id = addButton.dataset.addPrep;
+    if (!state.prepList.some((entry) => entry.id === id)) {
+      state.prepList.push({ id, status: "pending" });
+      renderAll();
+    }
+    return;
+  }
   const card = event.target.closest("[data-game-id]");
   if (!card) return;
   state.selectedId = card.dataset.gameId;
   renderAll();
+});
+
+els.prepList.addEventListener("click", (event) => {
+  const statusButton = event.target.closest("[data-prep-status]");
+  const removeButton = event.target.closest("[data-prep-remove]");
+
+  if (statusButton) {
+    const entry = state.prepList.find((item) => item.id === statusButton.dataset.prepId);
+    if (!entry) return;
+    entry.status = statusButton.dataset.prepStatus;
+    renderAll();
+    return;
+  }
+
+  if (removeButton) {
+    state.prepList = state.prepList.filter((item) => item.id !== removeButton.dataset.prepRemove);
+    renderAll();
+  }
 });
 
 els.detailView.addEventListener("submit", (event) => {
@@ -327,6 +417,7 @@ els.detailView.addEventListener("click", (event) => {
 
   if (deleteButton) {
     state.games = state.games.filter((item) => item.id !== game.id);
+    state.prepList = state.prepList.filter((item) => item.id !== game.id);
     state.selectedId = state.games[0]?.id || "";
     renderAll();
   }

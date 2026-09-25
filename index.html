@@ -26,6 +26,14 @@
             <span>最久未玩</span>
             <strong id="staleGame">-</strong>
           </div>
+          <div>
+            <span>待讲</span>
+            <strong id="pendingCount">0</strong>
+          </div>
+          <div>
+            <span>预计总时长</span>
+            <strong id="pendingDuration">-</strong>
+          </div>
         </div>
       </header>
 
@@ -61,6 +69,14 @@
             <option value="complexity">复杂度</option>
           </select>
         </label>
+      </section>
+
+      <section class="panel prep-panel">
+        <div class="panel-head">
+          <h2>准备清单</h2>
+          <span id="prepCount"></span>
+        </div>
+        <div id="prepList" class="prep-list"></div>
       </section>
 
       <section class="layout">
