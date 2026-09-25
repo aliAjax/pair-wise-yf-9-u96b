@@ -1,8 +1,11 @@
 const storageKey = "zfl18-boardgame-rule-cards";
 const today = new Date();
 
+const prepStatusLabels = { pending: "待讲", done: "讲完", skipped: "跳过" };
+
 const defaultState = {
   selectedId: "",
+  prepList: [],
   games: [
     {
       id: crypto.randomUUID(),
@@ -51,6 +54,13 @@ const defaultState = {
 
 let state = loadState();
 if (!state.selectedId) state.selectedId = state.games[0]?.id || "";
+// 清理清单里已被删除的桌游，并兜底非法状态
+state.prepList = (Array.isArray(state.prepList) ? state.prepList : [])
+  .filter((entry) => state.games.some((game) => game.id === entry.id))
+  .map((entry) => ({
+    id: entry.id,
+    status: prepStatusLabels[entry.status] ? entry.status : "pending"
+  }));
 
 const els = {
   searchInput: document.querySelector("#searchInput"),
@@ -66,7 +76,11 @@ const els = {
   lastPlayedInput: document.querySelector("#lastPlayedInput"),
   coverInput: document.querySelector("#coverInput"),
   gameList: document.querySelector("#gameList"),
+  prepList: document.querySelector("#prepList"),
+  prepCount: document.querySelector("#prepCount"),
   detailView: document.querySelector("#detailView"),
+  pendingCount: document.querySelector("#pendingCount"),
+  pendingTime: document.querySelector("#pendingTime"),
   gameCount: document.querySelector("#gameCount"),
   ruleCount: document.querySelector("#ruleCount"),
   staleGame: document.querySelector("#staleGame"),
@@ -116,9 +130,28 @@ function getFilteredGames() {
   return games.sort((a, b) => daysSince(b.lastPlayed) - daysSince(a.lastPlayed));
 }
 
+function formatDuration(minutes) {
+  if (!minutes) return "0分钟";
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `${rest}分钟`;
+  return rest ? `${hours}小时${rest}分` : `${hours}小时`;
+}
+
+function getPrepGame(entry) {
+  return state.games.find((game) => game.id === entry.id);
+}
+
 function renderSummary() {
   const allRuleCount = state.games.reduce((sum, game) => sum + getAllRules(game).length, 0);
   const stale = [...state.games].sort((a, b) => daysSince(b.lastPlayed) - daysSince(a.lastPlayed))[0];
+  const pendingGames = state.prepList
+    .filter((entry) => entry.status === "pending")
+    .map(getPrepGame)
+    .filter(Boolean);
+  const pendingMinutes = pendingGames.reduce((sum, game) => sum + game.duration, 0);
+  els.pendingCount.textContent = pendingGames.length;
+  els.pendingTime.textContent = formatDuration(pendingMinutes);
   els.gameCount.textContent = state.games.length;
   els.ruleCount.textContent = allRuleCount;
   els.staleGame.textContent = stale ? `${daysSince(stale.lastPlayed)}天` : "-";
@@ -131,6 +164,7 @@ function renderList() {
     games
       .map((game) => {
         const selected = game.id === state.selectedId ? "selected" : "";
+        const inPrep = state.prepList.some((entry) => entry.id === game.id);
         return `
           <article class="game-card ${selected}" data-game-id="${game.id}">
             <div class="cover">
@@ -148,11 +182,50 @@ function renderList() {
                 <span class="pill">${game.duration}分钟</span>
                 <span class="pill heavy">${escapeHtml(game.complexity)}</span>
               </div>
+              <button class="add-prep" type="button" data-add-id="${game.id}" ${inPrep ? "disabled" : ""}>
+                ${inPrep ? "已在清单 ✓" : "收进清单"}
+              </button>
             </div>
           </article>
         `;
       })
       .join("") || `<p class="empty">没有符合筛选的桌游。</p>`;
+}
+
+function renderPrepList() {
+  const items = state.prepList
+    .map((entry) => ({ entry, game: getPrepGame(entry) }))
+    .filter((item) => item.game);
+  els.prepCount.textContent = items.length ? `共${items.length}款` : "";
+  els.prepList.innerHTML =
+    items
+      .map(({ entry, game }, index) => {
+        const buttons = Object.entries(prepStatusLabels)
+          .map(
+            ([key, label]) => `
+              <button type="button" data-status="${key}" class="${entry.status === key ? "active" : ""}">${label}</button>
+            `
+          )
+          .join("");
+        return `
+          <li class="prep-item status-${entry.status}" data-prep-id="${entry.id}">
+            <span class="prep-order">${index + 1}</span>
+            <div class="prep-body">
+              <strong>${escapeHtml(game.name)}</strong>
+              <div class="game-meta">
+                <span class="pill">${game.duration}分钟</span>
+                <span class="pill">${game.minPlayers}-${game.maxPlayers}人</span>
+                <span class="pill heavy">${escapeHtml(game.complexity)}</span>
+              </div>
+              <div class="prep-actions">
+                ${buttons}
+                <button type="button" class="prep-remove" data-remove title="移出清单">×</button>
+              </div>
+            </div>
+          </li>
+        `;
+      })
+      .join("") || `<p class="empty">清单还是空的，从筛选结果里收进几款。</p>`;
 }
 
 function renderDetail() {
@@ -224,6 +297,7 @@ function renderAll() {
   saveState();
   renderSummary();
   renderList();
+  renderPrepList();
   renderDetail();
 }
 
@@ -288,9 +362,41 @@ els.sortMode.addEventListener("change", renderAll);
 els.gameForm.addEventListener("submit", addGame);
 
 els.gameList.addEventListener("click", (event) => {
+  const addButton = event.target.closest("[data-add-id]");
+  if (addButton) {
+    const gameId = addButton.dataset.addId;
+    if (!state.prepList.some((entry) => entry.id === gameId)) {
+      state.prepList.push({ id: gameId, status: "pending" });
+      renderAll();
+    }
+    return;
+  }
   const card = event.target.closest("[data-game-id]");
   if (!card) return;
   state.selectedId = card.dataset.gameId;
+  renderAll();
+});
+
+els.prepList.addEventListener("click", (event) => {
+  const item = event.target.closest("[data-prep-id]");
+  if (!item) return;
+  const entry = state.prepList.find((prep) => prep.id === item.dataset.prepId);
+  if (!entry) return;
+
+  const statusButton = event.target.closest("[data-status]");
+  if (statusButton) {
+    entry.status = statusButton.dataset.status;
+    renderAll();
+    return;
+  }
+
+  if (event.target.closest("[data-remove]")) {
+    state.prepList = state.prepList.filter((prep) => prep.id !== entry.id);
+    renderAll();
+    return;
+  }
+
+  state.selectedId = entry.id;
   renderAll();
 });
 
@@ -327,6 +433,7 @@ els.detailView.addEventListener("click", (event) => {
 
   if (deleteButton) {
     state.games = state.games.filter((item) => item.id !== game.id);
+    state.prepList = state.prepList.filter((entry) => entry.id !== game.id);
     state.selectedId = state.games[0]?.id || "";
     renderAll();
   }

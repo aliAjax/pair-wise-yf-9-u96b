@@ -15,6 +15,14 @@
         </div>
         <div class="summary">
           <div>
+            <span>待讲</span>
+            <strong id="pendingCount">0</strong>
+          </div>
+          <div>
+            <span>预计总时长</span>
+            <strong id="pendingTime">0分钟</strong>
+          </div>
+          <div>
             <span>收藏</span>
             <strong id="gameCount">0</strong>
           </div>
@@ -64,9 +72,18 @@
       </section>
 
       <section class="layout">
-        <aside class="panel">
-          <h2>新增桌游</h2>
-          <form id="gameForm" class="game-form">
+        <div class="side-stack">
+          <aside class="panel prep-panel">
+            <div class="panel-head">
+              <h2>准备清单</h2>
+              <span id="prepCount"></span>
+            </div>
+            <ol id="prepList" class="prep-list"></ol>
+          </aside>
+
+          <aside class="panel">
+            <h2>新增桌游</h2>
+            <form id="gameForm" class="game-form">
             <label>
               名称
               <input id="nameInput" required placeholder="例：勃艮第城堡" />
@@ -104,12 +121,13 @@
               <input id="coverInput" type="file" accept="image/*" />
             </label>
             <button class="primary" type="submit">加入收藏</button>
-          </form>
-        </aside>
+            </form>
+          </aside>
+        </div>
 
         <section class="panel list-panel">
           <div class="panel-head">
-            <h2>收藏列表</h2>
+            <h2>筛选结果</h2>
             <span id="visibleCount"></span>
           </div>
           <div id="gameList" class="game-list"></div>

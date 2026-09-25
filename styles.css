@@ -124,7 +124,7 @@ h3 {
 
 .summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(108px, 1fr));
+  grid-template-columns: repeat(5, minmax(104px, 1fr));
   gap: 10px;
 }
 
@@ -157,6 +157,11 @@ label,
   font-size: 24px;
 }
 
+#pendingTime {
+  font-size: 19px;
+  line-height: 1.4;
+}
+
 .controls {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) 150px 150px 150px;
@@ -180,6 +185,127 @@ label {
 
 .panel {
   padding: 14px;
+}
+
+.side-stack {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.prep-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prep-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.prep-item:hover {
+  border-color: var(--blue);
+}
+
+.prep-item.status-skipped {
+  opacity: 0.62;
+}
+
+.prep-item.status-done .prep-body strong {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.prep-order {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.prep-item.status-done .prep-order {
+  background: var(--green);
+}
+
+.prep-item.status-skipped .prep-order {
+  background: var(--muted);
+}
+
+.prep-body {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+
+.prep-body strong {
+  font-size: 14px;
+}
+
+.prep-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prep-actions button {
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.prep-actions button.active[data-status="pending"] {
+  border-color: var(--yellow);
+  background: rgba(213, 162, 61, 0.18);
+  color: #8a6414;
+}
+
+.prep-actions button.active[data-status="done"] {
+  border-color: var(--green);
+  background: rgba(57, 116, 91, 0.14);
+  color: var(--green);
+}
+
+.prep-actions button.active[data-status="skipped"] {
+  border-color: var(--muted);
+  background: #eceff1;
+  color: var(--muted);
+}
+
+.prep-remove {
+  margin-left: auto;
+}
+
+.add-prep {
+  width: 100%;
+  margin-top: 10px;
+  border-color: rgba(49, 95, 134, 0.4);
+  background: rgba(49, 95, 134, 0.07);
+  color: var(--blue);
+  font-weight: 800;
+}
+
+.add-prep:disabled {
+  border-color: rgba(57, 116, 91, 0.4);
+  background: rgba(57, 116, 91, 0.08);
+  color: var(--green);
+  cursor: default;
 }
 
 .game-form {
